@@ -3,7 +3,7 @@
 <style>
 :root{font-family:system-ui,-apple-system,sans-serif;color-scheme:light dark}*{box-sizing:border-box}html,body{margin:0;padding:0;background:transparent;min-height:0;height:auto;overflow:hidden}body{display:inline-block;width:100%;vertical-align:top}#app{display:inline-block;width:100%;max-width:280px;height:auto;min-height:0;margin:0;border:0;border-radius:7px;padding:3px;background:transparent;color:#171717;vertical-align:top;transition:background-color .15s}.pending{background:#f3c969!important}.pending .name{background:#9a6400}.bar{display:grid;grid-template-columns:58px 1fr 26px;gap:3px}.bar select,.bar button{height:27px;padding:2px;border-radius:6px;border:1px solid #aaa}.gear{font-size:16px}.name{margin:4px 0;background:#7b001c;color:#fff;border-radius:7px;min-height:38px;padding:6px 3px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:800;font-size:18px;line-height:1.05}.pick{width:100%;height:31px;border:0;border-radius:7px;background:#7b001c;color:#fff;font-weight:850}.pick:disabled{opacity:.5}.rating{display:grid;grid-template-columns:1fr 1fr;gap:4px}.rating button{height:34px;border:0;border-radius:7px;color:#fff;font-weight:850}.positive{background:#24823d}.negative{background:#b52b32}.foot{margin-top:3px;display:flex;align-items:center;justify-content:space-between;gap:3px;font-size:10px}.foot button{padding:3px 5px;border-radius:5px;border:1px solid #aaa}.panel{margin:3px 0 0;padding:3px 0 0;border-top:1px solid #bbb;height:auto;min-height:0}.hidden{display:none!important}.tabs{display:flex;gap:3px;margin-bottom:5px}.tabs button{flex:1;padding:5px}.attendance{max-height:48vh;overflow:auto}.attendance label{display:block;font-size:12px;padding:4px;border-bottom:1px solid #ddd}.done{width:100%;margin-top:5px;padding:7px;background:#7b001c;color:#fff;border:0;border-radius:6px;font-weight:700}.note{font-size:10px;opacity:.75;margin:4px 0}.summary{font-size:10px;max-height:42vh;overflow:auto}.summary div{padding:3px;border-bottom:1px solid #ddd}.msg{font-size:10px;margin:3px 0;color:#b52b32}@media(max-width:220px){body{padding:1px}#app{padding:3px;border-radius:6px}.bar{grid-template-columns:49px 1fr 24px}.name{font-size:15px;min-height:31px;padding:3px}.pick{height:28px;font-size:12px}.foot{font-size:9px}.foot button{padding:2px 3px}}@media(prefers-color-scheme:dark){#app{background:#181818;color:#eee}.pending{background:#5d4300!important}.bar select,.bar button,.foot button{background:#282828;color:#eee;border-color:#555}.attendance label,.summary div{border-color:#444}}
 </style></head><body><main id="app">
-<div id="signin"><div class="note">Open your <b>Student Selector Results.xlsx</b> from OneDrive. Names stay on this device and are never uploaded.</div><button id="openBtn" class="pick">OPEN ROSTER FILE</button><input id="fileInput" type="file" accept=".xlsx" class="hidden"><div class="note">Version 3 - keeps your Excel formatting</div></div>
+<div id="signin"><div class="note">Open your roster file (<b>Roster.csv</b> or <b>Student Selector Results.xlsx</b>) from OneDrive. Names stay on this device and are never uploaded.</div><button id="openBtn" class="pick">OPEN ROSTER FILE</button><input id="fileInput" type="file" accept=".csv,.xlsx" class="hidden"><div class="note">Version 4 - saves "Period N results.csv"</div></div>
 <div id="main" class="hidden">
 <div class="bar"><select id="period" aria-label="Period"><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option><option value="4">P4</option><option value="5">P5</option></select><div></div><button id="settings" class="gear" aria-label="Attendance and summary">☰</button></div>
 <div id="name" class="name" aria-live="polite">Ready</div>
@@ -13,147 +13,132 @@
 <div class="foot"><span id="stats">…</span><span><button id="undo">Undo</button><button id="saveBtn">Save</button></span></div>
 <section id="panel" class="panel hidden"><div class="tabs"><button id="attTab">Attendance</button><button id="summaryTab">Summary</button><button id="otherFile">Open file</button></div>
 <div id="attView"><div id="attendance" class="attendance"></div><button id="done" class="done">DONE</button></div>
-<div id="summaryView" class="hidden"><div class="note">Totals from the file, all dates.</div><div id="summary" class="summary"></div><button id="doneSummary" class="done">DONE</button></div></section>
+<div id="summaryView" class="hidden"><div class="note">Ratings made in this session.</div><div id="summary" class="summary"></div><button id="doneSummary" class="done">DONE</button></div></section>
 </div></main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script>
-/* Student Selector - works entirely in your browser.
-   You open your Excel workbook from OneDrive; names and ratings are never sent to any server or GitHub.
-   Ratings are added to the workbook as a "date +" and "date -" column pair on each tab (P1-P5). */
+/* Student Selector - runs entirely in your browser.
+   1. Open a roster file (Roster.csv with columns Period,Name  OR  your Student Selector Results.xlsx with tabs P1-P5).
+   2. Pick students and rate them + or -.
+   3. Tap Save after class: it creates "Period N results.csv" (Date,Period,Name,Rating,Stamp).
+   4. At the end of the day, run the Merge Ratings macro in Excel to add the results to your workbook.
+   Names and ratings are never sent to a server or stored on GitHub. */
 (()=>{
 const $=s=>document.querySelector(s);
 const app=$('#app'),period=$('#period'),nameEl=$('#name'),stats=$('#stats'),panel=$('#panel'),att=$('#attendance'),pickBtn=$('#pick'),rating=$('#rating'),msg=$('#msg'),saveBtn=$('#saveBtn');
-let wb=null,newCols={},fileHandle=null,fileName='Student Selector Results.xlsx',data={},absent=new Set(),pending=null,hist={},lastRatings=[],dirty=false;
+let roster={},absent=new Set(),pending=null,hist={},log=[],unsaved={};
 const say=t=>{msg.textContent=t||'';msg.style.color='#b52b32'};
 const ok=t=>{msg.textContent=t||'';msg.style.color='#24823d'};
-const sheetName=()=>'P'+period.value;
 const cooldown=()=>period.value==='1'||period.value==='4'?2:5;
-const todayKey=()=>{const d=new Date(),p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
-const vals=()=>data[sheetName()]||[['Student Name']];
-const names=()=>vals().slice(1).map(r=>String(r[0]??'').trim()).filter(Boolean);
+const pad=x=>String(x).padStart(2,'0');
+const dateKey=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`};
+const names=()=>roster[period.value]||[];
 const present=()=>names().filter(n=>!absent.has(n));
-const history=()=>hist[sheetName()]||(hist[sheetName()]=[]);
+const history=()=>hist[period.value]||(hist[period.value]=[]);
 const eligible=()=>{const b=new Set(history().slice(-cooldown()));return present().filter(n=>!b.has(n))};
 
-/* ---------- open the workbook ---------- */
-async function loadBuffer(buf,name){
-  wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);fileName=name||fileName;data={};newCols={};
-  wb.worksheets.forEach(ws=>{
-    const rows=[],nc=Math.max(ws.columnCount,1);
-    for(let r=1;r<=ws.rowCount;r++){const row=[];for(let c=1;c<=nc;c++){const cell=ws.getCell(r,c);const v=cell.value;row.push(v==null?'':(typeof v==='object'?cell.text:v))}rows.push(row)}
-    data[ws.name]=rows.length?rows:[['Student Name']];
-  });
-  if(!data.P1&&!data.P2&&!data.P3){say('No tabs named P1-P5 found in that file.');return false}
-  dirty=false;hist={};lastRatings=[];absent=new Set();
-  $('#signin').classList.add('hidden');$('#main').classList.remove('hidden');
-  clearPending();ok('Loaded '+fileName+' (v3)');return true;
+/* ---------- reading the roster ---------- */
+function parseCsv(t){
+  const rows=[];let row=[],f='',q=false;
+  t=t.replace(/^\uFEFF/,'');
+  for(let i=0;i<t.length;i++){const c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;
+    else if(c===','){row.push(f);f=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(f);rows.push(row);row=[];f=''}
+    else f+=c}
+  if(f!==''||row.length){row.push(f);rows.push(row)}
+  return rows.filter(r=>r.some(x=>String(x).trim()!==''));
+}
+async function readRoster(file){
+  const r={};const add=(p,n)=>{n=String(n??'').trim();if(!n||!(p>=1&&p<=5))return;(r[p]=r[p]||[]);if(!r[p].some(x=>x.toLowerCase()===n.toLowerCase()))r[p].push(n)};
+  if(/\.csv$/i.test(file.name)){
+    const rows=parseCsv(await file.text());
+    rows.forEach((row,i)=>{if(i===0&&/period/i.test(row[0]||''))return;add(parseInt(String(row[0]).replace(/\D/g,''),10),row[1])});
+  }else{
+    const wb=new ExcelJS.Workbook();await wb.xlsx.load(await file.arrayBuffer());
+    wb.worksheets.forEach(ws=>{const m=/^P(\d)$/i.exec(ws.name.trim());if(!m)return;
+      for(let i=2;i<=ws.rowCount;i++){const v=ws.getCell(i,1).value;add(+m[1],v&&typeof v==='object'?ws.getCell(i,1).text:v)}});
+  }
+  return r;
+}
+async function loadFile(file){
+  try{
+    const r=await readRoster(file);
+    if(!Object.keys(r).length){say('No names found in that file.');return}
+    if(Object.keys(unsaved).length&&!confirm('You have unsaved ratings. Open another file anyway?'))return;
+    roster=r;hist={};log=[];unsaved={};absent=new Set();
+    $('#signin').classList.add('hidden');$('#main').classList.remove('hidden');
+    clearPending();ok('Loaded '+file.name);
+  }catch(e){say('Could not open: '+e.message)}
 }
 async function openFile(){
   if(window.showOpenFilePicker){
-    try{
-      const [h]=await showOpenFilePicker({types:[{description:'Excel workbook',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});
-      const f=await h.getFile();fileHandle=h;await loadBuffer(await f.arrayBuffer(),f.name);
-    }catch(e){if(e.name!=='AbortError')say('Could not open: '+e.message)}
-  }else{$('#fileInput').click()}
+    try{const [h]=await showOpenFilePicker({types:[{description:'Roster',accept:{'text/csv':['.csv'],'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}]});await loadFile(await h.getFile())}
+    catch(e){if(e.name!=='AbortError')say('Could not open: '+e.message)}
+  }else $('#fileInput').click();
 }
-$('#fileInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;fileHandle=null;await loadBuffer(await f.arrayBuffer(),f.name);e.target.value=''};
+$('#fileInput').onchange=async e=>{const f=e.target.files[0];if(f)await loadFile(f);e.target.value=''};
 $('#openBtn').onclick=openFile;
-$('#otherFile').onclick=()=>{if(dirty&&!confirm('You have unsaved ratings. Open another file anyway?'))return;panel.classList.add('hidden');openFile()};
-
-/* ---------- save back to the workbook ---------- */
-/* Write only the rating columns back into the original workbook, so your own formatting is kept.
-   New date columns copy your layout: header text rotated -90 degrees, column width 2.75. */
-async function buildBuffer(){
-  Object.keys(data).forEach(n=>{
-    const ws=wb.getWorksheet(n);if(!ws)return;const rows=data[n],fresh=newCols[n]||new Set();
-    rows.forEach((row,i)=>row.forEach((v,j)=>{
-      if(j===0||v==='')return;
-      const cell=ws.getCell(i+1,j+1);if(cell.value!==v)cell.value=v;
-      if(fresh.has(j)){cell.alignment=i===0?{textRotation:-90,horizontal:'center',vertical:'bottom'}:{horizontal:'center'};if(i===0)cell.font={bold:true}}
-    }));
-    fresh.forEach(j=>{ws.getColumn(j+1).width=2.75});
-  });
-  return await wb.xlsx.writeBuffer();
-}
-async function save(){
-  if(!wb)return;
-  try{
-    let buf=null;
-    if(fileHandle){
-      if((await fileHandle.requestPermission({mode:'readwrite'}))!=='granted'){say('Permission to save was denied');return}
-      /* re-read the file as it is right now, so formatting changes made in Excel since opening are kept */
-      const latest=new ExcelJS.Workbook();await latest.xlsx.load(await (await fileHandle.getFile()).arrayBuffer());wb=latest;
-      const buf2=await buildBuffer();
-      const w=await fileHandle.createWritable();await w.write(buf2);await w.close();
-      dirty=false;ok('Saved to '+fileName);updateSave();return;
-    }
-    buf=await buildBuffer();
-    const file=new File([buf],fileName,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){
-      await navigator.share({files:[file],title:fileName});dirty=false;ok('Shared. Choose OneDrive and replace the old file.');
-    }else{
-      const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=fileName;document.body.append(a);a.click();a.remove();
-      dirty=false;ok('Downloaded. Copy it into OneDrive, replacing the old file.');
-    }
-  }catch(e){if(e.name!=='AbortError')say('Not saved: '+e.message)}
-  updateSave();
-}
-saveBtn.onclick=save;
-function updateSave(){saveBtn.textContent=dirty?'Save ●':'Save';saveBtn.style.fontWeight=dirty?'800':'400'}
-window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+$('#otherFile').onclick=()=>{panel.classList.add('hidden');openFile()};
 
 /* ---------- picking and rating ---------- */
+function updateSave(){const n=unsaved[period.value]||0;saveBtn.textContent=n?`Save ● ${n}`:'Save';saveBtn.style.fontWeight=n?'800':'400'}
 function update(){
   const n=names(),p=present(),r=eligible();
-  stats.textContent=n.length?`${r.length} eligible · ${p.length} present`:'No names found';
+  stats.textContent=n.length?`${r.length} eligible · ${p.length} present`:'No names for this period';
   pickBtn.disabled=!p.length||!!pending;
-  $('#undo').disabled=!pending&&!lastRatings.length;
-  period.disabled=!!pending;$('#settings').disabled=!!pending;
-  updateSave();
+  $('#undo').disabled=!pending&&!log.length;
+  period.disabled=!!pending;$('#settings').disabled=!!pending;updateSave();
 }
 function setPending(n){pending=n;nameEl.textContent=n;app.classList.add('pending');pickBtn.classList.add('hidden');rating.classList.remove('hidden');update()}
 function clearPending(){pending=null;nameEl.textContent='Ready';app.classList.remove('pending');rating.classList.add('hidden');pickBtn.classList.remove('hidden');update()}
-pickBtn.onclick=()=>{let r=eligible();if(!r.length){hist[sheetName()]=[];r=eligible()}if(!r.length)return;const n=r[Math.floor(Math.random()*r.length)];history().push(n);setPending(n)};
-
-function ensureCols(){
-  const v=vals(),h=v[0],key=todayKey();
-  let pi=h.indexOf(key+' +'),ni=h.indexOf(key+' -');
-  if(pi<0||ni<0){
-    let c=h.length;while(c>1&&(h[c-1]===''||h[c-1]==null))c--;
-    pi=c;ni=c+1;h[pi]=key+' +';h[ni]=key+' -';(newCols[sheetName()]=newCols[sheetName()]||new Set()).add(pi).add(ni);
-  }
-  v.slice(1).forEach(r=>{while(r.length<=ni)r.push('')});
-  return [pi,ni];
+pickBtn.onclick=()=>{let r=eligible();if(!r.length){hist[period.value]=[];r=eligible()}if(!r.length)return;const n=r[Math.floor(Math.random()*r.length)];history().push(n);setPending(n)};
+function rate(mark){
+  if(!pending)return;const now=new Date();
+  log.push({date:dateKey(),period:period.value,name:pending,rating:mark,stamp:now.toISOString()});
+  unsaved[period.value]=(unsaved[period.value]||0)+1;say('');clearPending();
 }
-function addToCell(name,col,delta){
-  const v=vals();const ri=v.findIndex((r,i)=>i>0&&String(r[0]).trim()===name);
-  if(ri<0)throw new Error('Name not found');
-  v[ri][col]=Math.max(0,(Number(v[ri][col])||0)+delta);
-}
-async function rate(plus){
-  if(!pending)return;const n=pending;
-  try{const [pi,ni]=ensureCols();const col=plus?pi:ni;addToCell(n,col,1);lastRatings.push({sheet:sheetName(),name:n,col});dirty=true;say('')}
-  catch(e){say('Not recorded: '+e.message);history().pop()}
-  clearPending();
-  if(fileHandle)await save();
-}
-$('#positive').onclick=()=>rate(true);$('#negative').onclick=()=>rate(false);
-$('#undo').onclick=async()=>{
+$('#positive').onclick=()=>rate('+');$('#negative').onclick=()=>rate('-');
+$('#undo').onclick=()=>{
   if(pending){history().pop();clearPending();return}
-  const l=lastRatings[lastRatings.length-1];if(!l)return;
-  if(l.sheet!==sheetName()){say('Switch back to '+l.sheet+' to undo');return}
-  try{addToCell(l.name,l.col,-1);lastRatings.pop();dirty=true;say('')}catch(e){say('Undo failed: '+e.message)}
-  update();if(fileHandle)await save();
+  const l=log.pop();if(!l)return;
+  unsaved[l.period]=Math.max(0,(unsaved[l.period]||1)-1);if(!unsaved[l.period])delete unsaved[l.period];
+  update();
 };
 
+/* ---------- saving "Period N results.csv" ---------- */
+const q=v=>{v=String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+async function save(){
+  const p=period.value,rows=log.filter(l=>l.period===p);
+  if(!rows.length){say('No ratings to save for P'+p);return}
+  const csv='Date,Period,Name,Rating,Stamp\n'+rows.map(l=>[l.date,l.period,q(l.name),l.rating,l.stamp].join(',')).join('\n')+'\n';
+  const fname=`Period ${p} results.csv`;
+  const file=new File([csv],fname,{type:'text/csv'});
+  try{
+    if(window.showSaveFilePicker){
+      const h=await showSaveFilePicker({suggestedName:fname,types:[{description:'CSV',accept:{'text/csv':['.csv']}}]});
+      const w=await h.createWritable();await w.write(csv);await w.close();
+    }else if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:fname});
+    }else{
+      const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=fname;document.body.append(a);a.click();a.remove();
+    }
+    delete unsaved[p];ok('Saved '+fname);
+  }catch(e){if(e.name!=='AbortError')say('Not saved: '+e.message)}
+  update();
+}
+saveBtn.onclick=save;
+window.addEventListener('beforeunload',e=>{if(Object.keys(unsaved).length){e.preventDefault();e.returnValue=''}});
+
 /* ---------- attendance and summary ---------- */
-function drawAttendance(){att.innerHTML='';const n=names();if(!n.length){const x=document.createElement('div');x.className='note';x.textContent='No names on this tab.';att.append(x);return}
+function drawAttendance(){att.innerHTML='';const n=names();if(!n.length){const x=document.createElement('div');x.className='note';x.textContent='No names for this period.';att.append(x);return}
   n.forEach(x=>{const l=document.createElement('label'),c=document.createElement('input');c.type='checkbox';c.checked=absent.has(x);c.onchange=()=>{c.checked?absent.add(x):absent.delete(x);update()};l.append(c,document.createTextNode(' '+x));att.append(l)})}
 function openAtt(){panel.classList.remove('hidden');$('#attView').classList.remove('hidden');$('#summaryView').classList.add('hidden');drawAttendance()}
 $('#settings').onclick=openAtt;$('#attTab').onclick=openAtt;
 $('#summaryTab').onclick=()=>{panel.classList.remove('hidden');$('#attView').classList.add('hidden');$('#summaryView').classList.remove('hidden');
-  const s=$('#summary');s.innerHTML='';const v=vals(),h=v[0];
-  v.slice(1).forEach(r=>{const nm=String(r[0]??'').trim();if(!nm)return;let p=0,m=0;h.forEach((x,i)=>{if(typeof x==='string'){if(x.endsWith(' +'))p+=Number(r[i])||0;else if(x.endsWith(' -'))m+=Number(r[i])||0}});const d=document.createElement('div');d.textContent=`${nm}: +${p} / −${m}`;s.append(d)})};
+  const s=$('#summary');s.innerHTML='';
+  names().forEach(nm=>{const a=log.filter(l=>l.period===period.value&&l.name===nm),p=a.filter(l=>l.rating==='+').length,m=a.length-p;if(!a.length)return;const d=document.createElement('div');d.textContent=`${nm}: +${p} / −${m}`;s.append(d)})};
 $('#done').onclick=$('#doneSummary').onclick=()=>{panel.classList.add('hidden');att.innerHTML='';update();window.scrollTo(0,0)};
 period.onchange=()=>{absent=new Set();panel.classList.add('hidden');clearPending()};
 })();
