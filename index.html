@@ -1,8 +1,126 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><title>Student Selector</title>
 <style>
-:root{font-family:system-ui,-apple-system,sans-serif;color-scheme:light dark}*{box-sizing:border-box}html,body{margin:0;padding:0;background:transparent;min-height:0;height:auto;overflow:hidden}body{display:inline-block;width:100%;vertical-align:top}#app{display:inline-block;width:100%;max-width:280px;height:auto;min-height:0;margin:0;border:0;border-radius:7px;padding:3px;background:transparent;color:#171717;vertical-align:top;transition:background-color .15s}.pending{background:#f3c969!important}.pending .name{background:#9a6400}.bar{display:grid;grid-template-columns:58px 1fr 26px;gap:3px}.bar select,.bar button{height:27px;padding:2px;border-radius:6px;border:1px solid #aaa}.gear{font-size:16px}.name{margin:4px 0;background:#7b001c;color:#fff;border-radius:7px;min-height:38px;padding:6px 3px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:800;font-size:18px;line-height:1.05}.pick{width:100%;height:31px;border:0;border-radius:7px;background:#7b001c;color:#fff;font-weight:850}.rating{display:grid;grid-template-columns:1fr 1fr;gap:4px}.rating button{height:34px;border:0;border-radius:7px;color:#fff;font-weight:850}.positive{background:#24823d}.negative{background:#b52b32}.foot{margin-top:3px;display:flex;align-items:center;justify-content:space-between;gap:3px;font-size:10px}.foot button{padding:3px 5px;border-radius:5px;border:1px solid #aaa}.panel{margin:3px 0 0;padding:3px 0 0;border-top:1px solid #bbb;height:auto;min-height:0}.hidden{display:none!important}.tabs{display:flex;gap:3px;margin-bottom:5px}.tabs button{flex:1;padding:5px}.roster textarea{width:100%;min-height:115px;border:1px solid #aaa;border-radius:6px;padding:5px;font-size:12px}.attendance{max-height:48vh;overflow:auto}.attendance label{display:block;font-size:12px;padding:4px;border-bottom:1px solid #ddd}.done{width:100%;margin-top:5px;padding:7px;background:#7b001c;color:#fff;border:0;border-radius:6px;font-weight:700}.note{font-size:10px;opacity:.75;margin:4px 0}.summary{font-size:10px;max-height:42vh;overflow:auto}.summary div{padding:3px;border-bottom:1px solid #ddd}@media(max-width:220px){body{padding:1px}#app{padding:3px;border-radius:6px}.bar{grid-template-columns:49px 1fr 24px}.name{font-size:15px;min-height:31px;padding:3px}.pick{height:28px;font-size:12px}.foot{font-size:9px}.foot button{padding:2px 3px}}@media(prefers-color-scheme:dark){#app{background:#181818;color:#eee}.pending{background:#5d4300!important}.bar select,.bar button,.foot button,textarea{background:#282828;color:#eee;border-color:#555}.attendance label,.summary div{border-color:#444}}
-</style></head><body><main id="app"><div class="bar"><select id="period" aria-label="Period"><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option><option value="4">P4</option><option value="5">P5</option></select><div></div><button id="settings" class="gear" aria-label="Attendance and roster">☰</button></div><div id="name" class="name" aria-live="polite">Ready</div><button id="pick" class="pick">PICK</button><div id="rating" class="rating hidden"><button id="positive" class="positive">+ POSITIVE</button><button id="negative" class="negative">− NEGATIVE</button></div><div class="foot"><span id="stats">No roster</span><span><button id="undo">Undo</button><button id="attBtn">Attendance</button></span></div><section id="panel" class="panel hidden"><div class="tabs"><button id="attTab">Attendance</button><button id="rosterTab">Rosters</button><button id="summaryTab">Summary</button></div><div id="attView"><div id="attendance" class="attendance"></div><button id="done" class="done">DONE</button></div><div id="rosterView" class="roster hidden"><div class="note">Names remain only in this browser on this device. One student per line.</div><textarea id="roster" aria-label="Roster"></textarea><button id="saveRoster" class="done">SAVE ROSTER</button></div><div id="summaryView" class="hidden"><div class="note">Participation totals stored on this device.</div><div id="summary" class="summary"></div><button id="doneSummary" class="done">DONE</button></div></section></main>
+:root{font-family:system-ui,-apple-system,sans-serif;color-scheme:light dark}*{box-sizing:border-box}html,body{margin:0;padding:0;background:transparent;min-height:0;height:auto;overflow:hidden}body{display:inline-block;width:100%;vertical-align:top}#app{display:inline-block;width:100%;max-width:280px;height:auto;min-height:0;margin:0;border:0;border-radius:7px;padding:3px;background:transparent;color:#171717;vertical-align:top;transition:background-color .15s}.pending{background:#f3c969!important}.pending .name{background:#9a6400}.bar{display:grid;grid-template-columns:58px 1fr 26px;gap:3px}.bar select,.bar button{height:27px;padding:2px;border-radius:6px;border:1px solid #aaa}.gear{font-size:16px}.name{margin:4px 0;background:#7b001c;color:#fff;border-radius:7px;min-height:38px;padding:6px 3px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:800;font-size:18px;line-height:1.05}.pick{width:100%;height:31px;border:0;border-radius:7px;background:#7b001c;color:#fff;font-weight:850}.pick:disabled{opacity:.5}.rating{display:grid;grid-template-columns:1fr 1fr;gap:4px}.rating button{height:34px;border:0;border-radius:7px;color:#fff;font-weight:850}.positive{background:#24823d}.negative{background:#b52b32}.foot{margin-top:3px;display:flex;align-items:center;justify-content:space-between;gap:3px;font-size:10px}.foot button{padding:3px 5px;border-radius:5px;border:1px solid #aaa}.panel{margin:3px 0 0;padding:3px 0 0;border-top:1px solid #bbb;height:auto;min-height:0}.hidden{display:none!important}.tabs{display:flex;gap:3px;margin-bottom:5px}.tabs button{flex:1;padding:5px}.attendance{max-height:48vh;overflow:auto}.attendance label{display:block;font-size:12px;padding:4px;border-bottom:1px solid #ddd}.done{width:100%;margin-top:5px;padding:7px;background:#7b001c;color:#fff;border:0;border-radius:6px;font-weight:700}.note{font-size:10px;opacity:.75;margin:4px 0}.summary{font-size:10px;max-height:42vh;overflow:auto}.summary div{padding:3px;border-bottom:1px solid #ddd}.msg{font-size:10px;margin:3px 0;color:#b52b32}@media(max-width:220px){body{padding:1px}#app{padding:3px;border-radius:6px}.bar{grid-template-columns:49px 1fr 24px}.name{font-size:15px;min-height:31px;padding:3px}.pick{height:28px;font-size:12px}.foot{font-size:9px}.foot button{padding:2px 3px}}@media(prefers-color-scheme:dark){#app{background:#181818;color:#eee}.pending{background:#5d4300!important}.bar select,.bar button,.foot button{background:#282828;color:#eee;border-color:#555}.attendance label,.summary div{border-color:#444}}
+</style></head><body><main id="app">
+<div id="signin" class="hidden"><div class="note">Sign in with your Microsoft account to load rosters from OneDrive.</div><button id="signinBtn" class="pick">SIGN IN</button></div>
+<div id="main" class="hidden">
+<div class="bar"><select id="period" aria-label="Period"><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option><option value="4">P4</option><option value="5">P5</option></select><div></div><button id="settings" class="gear" aria-label="Attendance and summary">☰</button></div>
+<div id="name" class="name" aria-live="polite">Loading…</div>
+<button id="pick" class="pick">PICK</button>
+<div id="rating" class="rating hidden"><button id="positive" class="positive">+ POSITIVE</button><button id="negative" class="negative">− NEGATIVE</button></div>
+<div id="msg" class="msg"></div>
+<div class="foot"><span id="stats">…</span><span><button id="undo">Undo</button><button id="attBtn">Attendance</button></span></div>
+<section id="panel" class="panel hidden"><div class="tabs"><button id="attTab">Attendance</button><button id="summaryTab">Summary</button><button id="reload">Reload</button><button id="signout">Sign out</button></div>
+<div id="attView"><div id="attendance" class="attendance"></div><button id="done" class="done">DONE</button></div>
+<div id="summaryView" class="hidden"><div class="note">Totals from your OneDrive workbook, all dates.</div><div id="summary" class="summary"></div><button id="doneSummary" class="done">DONE</button></div></section>
+</div></main>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <script>
-(()=>{const $=s=>document.querySelector(s),app=$('#app'),period=$('#period'),nameEl=$('#name'),stats=$('#stats'),panel=$('#panel'),att=$('#attendance'),roster=$('#roster'),pickBtn=$('#pick'),rating=$('#rating');let picked=[],absent=new Set(),pending=null;const storageKey=p=>`selector_roster_p${p}`,histKey=p=>`selector_history_p${p}`,ratingsKey='selector_participation_v1';const names=()=>{try{return JSON.parse(localStorage.getItem(storageKey(period.value))||'[]')}catch{return[]}};const cooldown=()=>period.value==='1'||period.value==='4'?2:5;const history=()=>{try{return JSON.parse(localStorage.getItem(histKey(period.value))||'[]')}catch{return[]}};const saveHistory=h=>localStorage.setItem(histKey(period.value),JSON.stringify(h.slice(-cooldown())));const ratingsData=()=>{try{return JSON.parse(localStorage.getItem(ratingsKey)||'[]')}catch{return[]}};const saveRatings=a=>localStorage.setItem(ratingsKey,JSON.stringify(a));const present=()=>names().filter(n=>!absent.has(n));const eligible=()=>{const block=new Set(history().slice(-cooldown()));return present().filter(n=>!block.has(n))};function update(){const n=names(),p=present(),r=eligible();stats.textContent=n.length?`${r.length} eligible · ${p.length} present`:'Set roster';pickBtn.disabled=!p.length||!!pending;$('#undo').disabled=!history().length&&ratingsData().length===0;period.disabled=!!pending;$('#settings').disabled=!!pending;$('#attBtn').disabled=!!pending}function setPending(n){pending=n;nameEl.textContent=n;app.classList.add('pending');pickBtn.classList.add('hidden');rating.classList.remove('hidden');update()}function clearPending(){pending=null;nameEl.textContent='Ready';app.classList.remove('pending');rating.classList.add('hidden');pickBtn.classList.remove('hidden');update()}function drawAttendance(){att.innerHTML='';const n=names();if(!n.length){const x=document.createElement('div');x.className='note';x.textContent='No roster for this period. Open Rosters to add names.';att.append(x);return}n.forEach(x=>{const l=document.createElement('label'),c=document.createElement('input');c.type='checkbox';c.checked=absent.has(x);c.onchange=()=>{c.checked?absent.add(x):absent.delete(x);update()};l.append(c,document.createTextNode(' '+x));att.append(l)})}function setPeriod(){absent=new Set();clearPending();panel.classList.add('hidden');update()}period.onchange=setPeriod;pickBtn.onclick=()=>{let r=eligible();if(!r.length){const p=present();if(!p.length)return;saveHistory([]);r=eligible()}if(!r.length)return;const n=r[Math.floor(Math.random()*r.length)];const h=history();h.push(n);saveHistory(h);setPending(n)};function rate(mark){if(!pending)return;const a=ratingsData();a.push({period:period.value,name:pending,rating:mark,time:new Date().toISOString()});saveRatings(a);picked.push(pending);clearPending()}$('#positive').onclick=()=>rate('+');$('#negative').onclick=()=>rate('-');$('#undo').onclick=()=>{if(pending){const h=history();h.pop();saveHistory(h);clearPending();return}const a=ratingsData();for(let i=a.length-1;i>=0;i--){if(a[i].period===period.value){a.splice(i,1);saveRatings(a);break}}update()};function openAtt(){panel.classList.remove('hidden');$('#attView').classList.remove('hidden');$('#rosterView').classList.add('hidden');$('#summaryView').classList.add('hidden');drawAttendance()}$('#settings').onclick=openAtt;$('#attBtn').onclick=openAtt;$('#attTab').onclick=openAtt;$('#rosterTab').onclick=()=>{panel.classList.remove('hidden');$('#attView').classList.add('hidden');$('#summaryView').classList.add('hidden');$('#rosterView').classList.remove('hidden');roster.value=names().join('\n')};$('#summaryTab').onclick=()=>{panel.classList.remove('hidden');$('#attView').classList.add('hidden');$('#rosterView').classList.add('hidden');$('#summaryView').classList.remove('hidden');const s=$('#summary');s.innerHTML='';const a=ratingsData().filter(x=>x.period===period.value);names().forEach(n=>{const x=a.filter(e=>e.name===n),pos=x.filter(e=>e.rating==='+').length,neg=x.filter(e=>e.rating==='-').length,d=document.createElement('div');d.textContent=`${n}: +${pos} / −${neg}`;s.append(d)})};$('#saveRoster').onclick=()=>{const a=roster.value.split(/\n+/).map(x=>x.trim()).filter(Boolean).filter((x,i,a)=>a.findIndex(y=>y.toLowerCase()===x.toLowerCase())===i);localStorage.setItem(storageKey(period.value),JSON.stringify(a));absent=new Set();saveHistory([]);clearPending();openAtt();update()};$('#done').onclick=$('#doneSummary').onclick=()=>{panel.classList.add('hidden');att.innerHTML='';update();window.scrollTo(0,0)};update()})();
+/* ===== SETTINGS (no student data is stored in this file) ===== */
+const CLIENT_ID='PASTE-YOUR-APPLICATION-CLIENT-ID-HERE';
+const FILE_PATH='Lockney ISD/Academic year 2026-2027/Common Files/Student Selector Results.xlsx';
+const SCOPES=['Files.ReadWrite','User.Read'];
+/* Names and ratings are kept only in memory and in your OneDrive workbook. */
+(()=>{
+const $=s=>document.querySelector(s);
+const app=$('#app'),period=$('#period'),nameEl=$('#name'),stats=$('#stats'),panel=$('#panel'),att=$('#attendance'),pickBtn=$('#pick'),rating=$('#rating'),msg=$('#msg');
+const G='https://graph.microsoft.com/v1.0';
+let pca,account,fileId,sheets={},absent=new Set(),pending=null,hist={},lastRatings=[],busy=false;
+const say=t=>{msg.textContent=t||''};
+const colL=n=>{let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-m-1)/26)}return s};
+const todayKey=()=>{const d=new Date(),p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
+const sheetName=()=>'P'+period.value;
+const cooldown=()=>period.value==='1'||period.value==='4'?2:5;
+
+async function token(){try{return (await pca.acquireTokenSilent({scopes:SCOPES,account})).accessToken}catch(e){await pca.acquireTokenRedirect({scopes:SCOPES,account});throw e}}
+async function g(path,opt={}){const t=await token();const r=await fetch(G+path,{...opt,headers:{Authorization:'Bearer '+t,'Content-Type':'application/json'}});if(!r.ok){let d='';try{d=(await r.json()).error.message}catch{}throw new Error(r.status+' '+d)}return r.status===204?null:r.json()}
+const wsPath=()=>`/me/drive/items/${fileId}/workbook/worksheets('${sheetName()}')`;
+
+async function loadSheet(){
+  say('');busy=true;nameEl.textContent='Loading…';
+  try{
+    if(!fileId){const it=await g('/me/drive/root:/'+FILE_PATH.split('/').map(encodeURIComponent).join('/'));fileId=it.id}
+    const r=await g(wsPath()+"/usedRange(valuesOnly=true)?$select=values");
+    sheets[sheetName()]=r.values;
+  }catch(e){say('Could not load: '+e.message)}
+  busy=false;clearPending();
+}
+const vals=()=>sheets[sheetName()]||[[]];
+const names=()=>vals().slice(1).map(r=>String(r[0]??'').trim()).filter(Boolean);
+const present=()=>names().filter(n=>!absent.has(n));
+const history=()=>hist[sheetName()]||(hist[sheetName()]=[]);
+const eligible=()=>{const b=new Set(history().slice(-cooldown()));return present().filter(n=>!b.has(n))};
+
+function update(){
+  const n=names(),p=present(),r=eligible();
+  stats.textContent=n.length?`${r.length} eligible · ${p.length} present`:'No names found';
+  pickBtn.disabled=!p.length||!!pending||busy;
+  $('#undo').disabled=!pending&&!lastRatings.length;
+  period.disabled=!!pending;$('#settings').disabled=!!pending;$('#attBtn').disabled=!!pending;
+}
+function setPending(n){pending=n;nameEl.textContent=n;app.classList.add('pending');pickBtn.classList.add('hidden');rating.classList.remove('hidden');update()}
+function clearPending(){pending=null;nameEl.textContent='Ready';app.classList.remove('pending');rating.classList.add('hidden');pickBtn.classList.remove('hidden');update()}
+
+pickBtn.onclick=()=>{let r=eligible();if(!r.length){hist[sheetName()]=[];r=eligible()}if(!r.length)return;const n=r[Math.floor(Math.random()*r.length)];history().push(n);setPending(n)};
+
+async function ensureCols(){
+  const v=vals(),h=v[0],key=todayKey();
+  let pi=h.indexOf(key+' +'),ni=h.indexOf(key+' -');
+  if(pi<0||ni<0){
+    let c=h.length;while(c>1&&(h[c-1]===''||h[c-1]==null))c--;
+    pi=c;ni=c+1;
+    await g(wsPath()+`/range(address='${colL(pi)}1:${colL(ni)}1')`,{method:'PATCH',body:JSON.stringify({values:[[key+' +',key+' -']]})});
+    h[pi]=key+' +';h[ni]=key+' -';
+    v.slice(1).forEach(r=>{while(r.length<=ni)r.push('')});
+  }
+  return [pi,ni];
+}
+async function addToCell(name,col,delta){
+  const v=vals();const ri=v.findIndex((r,i)=>i>0&&String(r[0]).trim()===name);
+  if(ri<0)throw new Error('Name not found in sheet');
+  const cur=Number(v[ri][col])||0,nv=Math.max(0,cur+delta);
+  await g(wsPath()+`/range(address='${colL(col)}${ri+1}')`,{method:'PATCH',body:JSON.stringify({values:[[nv]]})});
+  v[ri][col]=nv;
+}
+async function rate(plus){
+  if(!pending||busy)return;busy=true;const n=pending;say('Saving…');
+  try{const [pi,ni]=await ensureCols();const col=plus?pi:ni;await addToCell(n,col,1);lastRatings.push({sheet:sheetName(),name:n,col});say('')}
+  catch(e){say('Not saved: '+e.message);history().pop()}
+  busy=false;clearPending();
+}
+$('#positive').onclick=()=>rate(true);$('#negative').onclick=()=>rate(false);
+$('#undo').onclick=async()=>{
+  if(pending){history().pop();clearPending();return}
+  const l=lastRatings[lastRatings.length-1];if(!l||busy)return;
+  if(l.sheet!==sheetName()){say('Switch back to '+l.sheet+' to undo');return}
+  busy=true;say('Undoing…');
+  try{await addToCell(l.name,l.col,-1);lastRatings.pop();say('')}catch(e){say('Undo failed: '+e.message)}
+  busy=false;update();
+};
+
+function drawAttendance(){att.innerHTML='';const n=names();if(!n.length){const x=document.createElement('div');x.className='note';x.textContent='No names on this tab.';att.append(x);return}
+  n.forEach(x=>{const l=document.createElement('label'),c=document.createElement('input');c.type='checkbox';c.checked=absent.has(x);c.onchange=()=>{c.checked?absent.add(x):absent.delete(x);update()};l.append(c,document.createTextNode(' '+x));att.append(l)})}
+function openAtt(){panel.classList.remove('hidden');$('#attView').classList.remove('hidden');$('#summaryView').classList.add('hidden');drawAttendance()}
+$('#settings').onclick=openAtt;$('#attBtn').onclick=openAtt;$('#attTab').onclick=openAtt;
+$('#summaryTab').onclick=()=>{panel.classList.remove('hidden');$('#attView').classList.add('hidden');$('#summaryView').classList.remove('hidden');
+  const s=$('#summary');s.innerHTML='';const v=vals(),h=v[0];
+  v.slice(1).forEach(r=>{const nm=String(r[0]??'').trim();if(!nm)return;let p=0,m=0;h.forEach((x,i)=>{if(typeof x==='string'){if(x.endsWith(' +'))p+=Number(r[i])||0;else if(x.endsWith(' -'))m+=Number(r[i])||0}});const d=document.createElement('div');d.textContent=`${nm}: +${p} / −${m}`;s.append(d)})};
+$('#reload').onclick=async()=>{panel.classList.add('hidden');await loadSheet()};
+$('#done').onclick=$('#doneSummary').onclick=()=>{panel.classList.add('hidden');att.innerHTML='';update();window.scrollTo(0,0)};
+period.onchange=async()=>{absent=new Set();panel.classList.add('hidden');await loadSheet()};
+$('#signout').onclick=()=>{sheets={};hist={};lastRatings=[];pca.logoutRedirect({account})};
+
+async function start(){
+  if(CLIENT_ID.startsWith('PASTE')){$('#signin').classList.remove('hidden');$('#signin').querySelector('.note').textContent='Setup needed: add your Application (client) ID in the settings at the top of this file.';$('#signinBtn').classList.add('hidden');return}
+  pca=new window.msal.PublicClientApplication({auth:{clientId:CLIENT_ID,authority:'https://login.microsoftonline.com/consumers',redirectUri:location.origin+location.pathname},cache:{cacheLocation:'localStorage'}});
+  await pca.initialize();
+  const res=await pca.handleRedirectPromise();
+  account=res?.account||pca.getAllAccounts()[0];
+  if(!account){$('#signin').classList.remove('hidden');$('#signinBtn').onclick=()=>pca.loginRedirect({scopes:SCOPES});return}
+  $('#signin').classList.add('hidden');$('#main').classList.remove('hidden');
+  await loadSheet();
+}
+start().catch(e=>{$('#signin').classList.remove('hidden');$('#signin').querySelector('.note').textContent='Error: '+e.message});
+})();
 </script></body></html>
