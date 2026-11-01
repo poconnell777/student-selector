@@ -15,7 +15,7 @@
 <div id="attView"><div id="attendance" class="attendance"></div><button id="done" class="done">DONE</button></div>
 <div id="summaryView" class="hidden"><div class="note">Totals from the file, all dates.</div><div id="summary" class="summary"></div><button id="doneSummary" class="done">DONE</button></div></section>
 </div></main>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script>
 /* Student Selector - works entirely in your browser.
    You open your Excel workbook from OneDrive; names and ratings are never sent to any server or GitHub.
@@ -23,7 +23,7 @@
 (()=>{
 const $=s=>document.querySelector(s);
 const app=$('#app'),period=$('#period'),nameEl=$('#name'),stats=$('#stats'),panel=$('#panel'),att=$('#attendance'),pickBtn=$('#pick'),rating=$('#rating'),msg=$('#msg'),saveBtn=$('#saveBtn');
-let wb=null,fileHandle=null,fileName='Student Selector Results.xlsx',data={},absent=new Set(),pending=null,hist={},lastRatings=[],dirty=false;
+let wb=null,newCols={},fileHandle=null,fileName='Student Selector Results.xlsx',data={},absent=new Set(),pending=null,hist={},lastRatings=[],dirty=false;
 const say=t=>{msg.textContent=t||'';msg.style.color='#b52b32'};
 const ok=t=>{msg.textContent=t||'';msg.style.color='#24823d'};
 const sheetName=()=>'P'+period.value;
@@ -37,8 +37,12 @@ const eligible=()=>{const b=new Set(history().slice(-cooldown()));return present
 
 /* ---------- open the workbook ---------- */
 async function loadBuffer(buf,name){
-  wb=XLSX.read(buf,{type:'array'});fileName=name||fileName;data={};
-  wb.SheetNames.forEach(n=>{data[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:''})});
+  wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);fileName=name||fileName;data={};newCols={};
+  wb.worksheets.forEach(ws=>{
+    const rows=[],nc=Math.max(ws.columnCount,1);
+    for(let r=1;r<=ws.rowCount;r++){const row=[];for(let c=1;c<=nc;c++){const cell=ws.getCell(r,c);const v=cell.value;row.push(v==null?'':(typeof v==='object'?cell.text:v))}rows.push(row)}
+    data[ws.name]=rows.length?rows:[['Student Name']];
+  });
   if(!data.P1&&!data.P2&&!data.P3){say('No tabs named P1-P5 found in that file.');return false}
   dirty=false;hist={};lastRatings=[];absent=new Set();
   $('#signin').classList.add('hidden');$('#main').classList.remove('hidden');
@@ -57,13 +61,23 @@ $('#openBtn').onclick=openFile;
 $('#otherFile').onclick=()=>{if(dirty&&!confirm('You have unsaved ratings. Open another file anyway?'))return;panel.classList.add('hidden');openFile()};
 
 /* ---------- save back to the workbook ---------- */
-function buildBuffer(){
-  Object.keys(data).forEach(n=>{const ws=XLSX.utils.aoa_to_sheet(data[n]);ws['!cols']=[{wch:30}];wb.Sheets[n]=ws});
-  return XLSX.write(wb,{type:'array',bookType:'xlsx'});
+/* Write only the rating columns back into the original workbook, so your own formatting is kept.
+   New date columns copy your layout: header text rotated -90 degrees, column width 2.75. */
+async function buildBuffer(){
+  Object.keys(data).forEach(n=>{
+    const ws=wb.getWorksheet(n);if(!ws)return;const rows=data[n],fresh=newCols[n]||new Set();
+    rows.forEach((row,i)=>row.forEach((v,j)=>{
+      if(j===0||v==='')return;
+      const cell=ws.getCell(i+1,j+1);if(cell.value!==v)cell.value=v;
+      if(fresh.has(j)){cell.alignment=i===0?{textRotation:-90,horizontal:'center',vertical:'bottom'}:{horizontal:'center'};if(i===0)cell.font={bold:true}}
+    }));
+    fresh.forEach(j=>{ws.getColumn(j+1).width=2.75});
+  });
+  return await wb.xlsx.writeBuffer();
 }
 async function save(){
   if(!wb)return;
-  const buf=buildBuffer();
+  const buf=await buildBuffer();
   try{
     if(fileHandle){
       if((await fileHandle.requestPermission({mode:'readwrite'}))!=='granted'){say('Permission to save was denied');return}
@@ -102,7 +116,7 @@ function ensureCols(){
   let pi=h.indexOf(key+' +'),ni=h.indexOf(key+' -');
   if(pi<0||ni<0){
     let c=h.length;while(c>1&&(h[c-1]===''||h[c-1]==null))c--;
-    pi=c;ni=c+1;h[pi]=key+' +';h[ni]=key+' -';
+    pi=c;ni=c+1;h[pi]=key+' +';h[ni]=key+' -';(newCols[sheetName()]=newCols[sheetName()]||new Set()).add(pi).add(ni);
   }
   v.slice(1).forEach(r=>{while(r.length<=ni)r.push('')});
   return [pi,ni];
