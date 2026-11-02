@@ -3,7 +3,7 @@
 <style>
 :root{font-family:system-ui,-apple-system,sans-serif;color-scheme:light dark}*{box-sizing:border-box}html,body{margin:0;padding:0;background:transparent;min-height:0;height:auto;overflow:hidden}body{display:inline-block;width:100%;vertical-align:top}#app{display:inline-block;width:100%;max-width:280px;height:auto;min-height:0;margin:0;border:0;border-radius:7px;padding:3px;background:transparent;color:#171717;vertical-align:top;transition:background-color .15s}.pending{background:#f3c969!important}.pending .name{background:#9a6400}.bar{display:grid;grid-template-columns:1fr 70px 1fr;gap:3px;align-items:center}.bar #settings{justify-self:end;width:30px}.bar select,.bar button{height:27px;padding:2px;border-radius:6px;border:1px solid #aaa}.gear{font-size:16px}.name{margin:4px 0;background:#7b001c;color:#fff;border-radius:7px;min-height:38px;padding:6px 3px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:800;font-size:18px;line-height:1.05}.pick{width:100%;height:31px;border:0;border-radius:7px;background:#7b001c;color:#fff;font-weight:850}.pick:disabled{opacity:.5}.rating{display:grid;grid-template-columns:1fr 1fr;gap:4px}.rating button{height:34px;border:0;border-radius:7px;color:#fff;font-weight:850}.positive{background:#24823d}.negative{background:#b52b32}.foot{margin-top:3px;display:flex;align-items:center;justify-content:space-between;gap:3px;font-size:10px}.foot button{padding:3px 5px;border-radius:5px;border:1px solid #aaa}.panel{margin:3px 0 0;padding:3px 0 0;border-top:1px solid #bbb;height:auto;min-height:0}.hidden{display:none!important}.tabs{display:flex;gap:3px;margin-bottom:5px}.tabs button{flex:1;padding:5px}.attendance{max-height:48vh;overflow:auto}.attendance label{display:block;font-size:12px;padding:4px;border-bottom:1px solid #ddd}.done{width:100%;margin-top:5px;padding:7px;background:#7b001c;color:#fff;border:0;border-radius:6px;font-weight:700}.note{font-size:10px;opacity:.75;margin:4px 0}.summary{font-size:10px;max-height:42vh;overflow:auto}.summary div{padding:3px;border-bottom:1px solid #ddd}.msg{font-size:10px;margin:3px 0;color:#b52b32}@media(max-width:220px){body{padding:1px}#app{padding:3px;border-radius:6px}.bar{grid-template-columns:1fr 60px 1fr}.name{font-size:15px;min-height:31px;padding:3px}.pick{height:28px;font-size:12px}.foot{font-size:9px}.foot button{padding:2px 3px}}@media(prefers-color-scheme:dark){#app{background:#181818;color:#eee}.pending{background:#5d4300!important}.bar select,.bar button,.foot button{background:#282828;color:#eee;border-color:#555}.attendance label,.summary div{border-color:#444}}
 </style></head><body><main id="app">
-<div id="signin"><div class="note">Open your roster file (<b>Roster.csv</b> or <b>Student Selector Results.xlsx</b>) from OneDrive. Names stay on this device and are never uploaded.</div><button id="openBtn" class="pick">OPEN ROSTER FILE</button><input id="fileInput" type="file" accept=".csv,.xlsx" class="hidden"><div class="note">Version 5 - saves "Period N results.csv"</div></div>
+<div id="signin"><div class="note">Open your roster file (<b>Roster.csv</b> or <b>Student Selector Results.xlsx</b>) from OneDrive. Names stay on this device and are never uploaded.</div><button id="openBtn" class="pick">OPEN ROSTER FILE</button><input id="fileInput" type="file" accept=".csv,.xlsx" class="hidden"><div class="note">Version 8 - saves "Period N results.csv"</div></div>
 <div id="main" class="hidden">
 <div class="bar"><div></div><select id="period" aria-label="Period"><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option><option value="4">P4</option><option value="5">P5</option></select><button id="settings" class="gear" aria-label="Attendance and summary">☰</button></div>
 <div id="name" class="name" aria-live="polite">Ready</div>
@@ -35,7 +35,10 @@ const dateKey=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMont
 const names=()=>roster[period.value]||[];
 const present=()=>names().filter(n=>!absent.has(n));
 const history=()=>hist[period.value]||(hist[period.value]=[]);
-const eligible=()=>{const b=new Set(history().slice(-cooldown()));return present().filter(n=>!b.has(n))};
+/* Picking rule: the last N picks are excluded (N = 5, or 2 in P1 and P4). The oldest excluded student
+   returns to the pool on the next pick. Everyone in the pool has exactly the same chance. */
+const window_=()=>Math.max(0,Math.min(cooldown(),present().length-1));
+const eligible=()=>{const b=new Set(history().slice(-window_()));return present().filter(n=>!b.has(n))};
 
 /* ---------- reading the roster ---------- */
 function parseCsv(t){
@@ -86,14 +89,18 @@ $('#otherFile').onclick=()=>{panel.classList.add('hidden');openFile()};
 function updateSave(){const n=unsaved[period.value]||0;saveBtn.textContent=n?`Save ● ${n}`:'Save';saveBtn.style.fontWeight=n?'800':'400'}
 function update(){
   const n=names(),p=present(),r=eligible();
-  stats.textContent=n.length?`${r.length} eligible · ${p.length} present`:'No names for this period';
+  stats.textContent=n.length?`${r.length} in pool · ${p.length} present`:'No names for this period';
   pickBtn.disabled=!p.length||!!pending;
   $('#undo').disabled=!pending&&!log.length;
   period.disabled=!!pending;$('#settings').disabled=!!pending;updateSave();
 }
 function setPending(n){pending=n;nameEl.textContent=n;app.classList.add('pending');pickBtn.classList.add('hidden');rating.classList.remove('hidden');update()}
 function clearPending(){pending=null;nameEl.textContent='Ready';app.classList.remove('pending');rating.classList.add('hidden');pickBtn.classList.remove('hidden');update()}
-pickBtn.onclick=()=>{let r=eligible();if(!r.length){hist[period.value]=[];r=eligible()}if(!r.length)return;const n=r[Math.floor(Math.random()*r.length)];history().push(n);setPending(n)};
+pickBtn.onclick=()=>{
+  const r=eligible();if(!r.length)return;
+  const n=r[Math.floor(Math.random()*r.length)];
+  history().push(n);setPending(n);
+};
 function rate(mark){
   if(!pending)return;const now=new Date();
   log.push({date:dateKey(),period:period.value,name:pending,rating:mark,stamp:now.toISOString()});
